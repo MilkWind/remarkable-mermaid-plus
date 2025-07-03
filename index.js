@@ -11,9 +11,21 @@ const rmermaid = (md, options) => {
 
   // Extract Mermaid configuration
   const mermaidConfig = {
+    // Server-side rendering options
+    clientSide: opts.clientSide || false,
+    fallbackToClientSide: opts.fallbackToClientSide !== false,
+    theme: opts.theme || 'default',
+    fontFamily: opts.fontFamily || 'arial',
+    fontSize: opts.fontSize || 16,
+    
+    // Legacy client-side options
     includeScript: opts.includeScript || false,
     customClass: opts.mermaidCustomClass || '',
     customStyle: opts.mermaidCustomStyle || '',
+    
+    // Advanced mermaid configuration
+    mermaidConfig: opts.mermaidConfig || {},
+    
     // Add other Mermaid options here as needed
   };
 
