@@ -1,0 +1,29 @@
+{
+  "name": "remarkable-mermaid-plus",
+  "version": "1.0.0",
+  "description": "Plugin for Remarkable to process embedded mermaid code in Markdown text.",
+  "main": "index.js",
+  "homepage": "https://github.com/MilkWind/remarkable-mermaid-plus",
+  "keywords": [
+    "remarkable",
+    "mermaid",
+    "markdown"
+  ],
+  "author": {
+    "name": "MilkWind",
+    "email": "2250957906@qq.com",
+    "url": "https://milkwind.github.io"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "remarkable": "2",
+    "vows": "0"
+  },
+  "repository": {
+    "type": "https",
+    "url": "https://github.com/MilkWind/remarkable-mermaid-plus.git"
+  },
+  "scripts": {
+    "test": "npx vows --spec index.test.js"
+  }
+}
