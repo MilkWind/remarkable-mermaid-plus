@@ -462,3 +462,73 @@ The test suite includes comprehensive tests for:
 - **Cross-platform**: Works on different Node.js versions and operating systems
 
 > **NOTE**: if this fails, there may be a path issue with `vows` executable. See [package.json](package.json).
+
+## Version Compatibility and Server-side Rendering
+
+### Mermaid Version Compatibility
+
+This plugin supports multiple versions of Mermaid:
+
+- **Mermaid v8.x - v9.x**: Full server-side rendering support
+- **Mermaid v10.x+**: Limited server-side rendering due to async API changes
+- **Client-side**: All versions supported
+
+### Server-side Rendering Limitations
+
+Starting with Mermaid v10.0+, the rendering API became asynchronous, which is incompatible with Remarkable's synchronous plugin system. The plugin handles this by:
+
+1. **Automatic Detection**: Detects mermaid version and API capabilities
+2. **Graceful Fallback**: For v10+, automatically falls back to client-side rendering
+3. **Legacy Support**: Maintains compatibility with older mermaid versions
+
+### Recommended Configurations
+
+#### For Server-side Rendering Priority
+```javascript
+// Use mermaid v8.x or v9.x for full server-side support
+npm install mermaid@^9.4.3 jsdom
+
+const md = new Remarkable();
+md.use(rmermaid, {
+  fallbackToClientSide: true,  // Enable fallback for safety
+  theme: 'default',
+  fontFamily: 'arial'
+});
+```
+
+#### For Client-side Rendering (Recommended for v10+)
+```javascript
+// Use latest mermaid v10+ for client-side rendering
+npm install mermaid@^10.0.0
+
+const md = new Remarkable();
+md.use(rmermaid, {
+  clientSide: true,           // Force client-side rendering
+  includeScript: true         // Include initialization script
+});
+```
+
+### Error Handling
+
+The plugin provides comprehensive error handling:
+
+- **Missing Dependencies**: Gracefully falls back to client-side rendering
+- **Version Incompatibility**: Automatic detection and fallback
+- **Syntax Errors**: Renders error information with original source
+- **Network Issues**: Client-side rendering continues to work
+
+### Debugging
+
+To debug rendering issues:
+
+```javascript
+const md = new Remarkable();
+md.use(rmermaid, {
+  fallbackToClientSide: false,  // Disable fallback to see actual errors
+  mermaidConfig: {
+    logLevel: 'debug'           // Enable mermaid debug logging
+  }
+});
+```
+
+Check the console for warning messages about rendering failures.

@@ -1,51 +1,23 @@
 "use strict";
 
 /**
- * Plugin for Remarkable Markdown processor which transforms ```mermaid code blocks into Mermaid diagrams.
+ * Plugin for Remarkable Markdown processor which transforms mermaid code blocks into Mermaid diagrams.
+ * Works as a post-processor on HTML content when html: true is enabled.
  */
 const rmermaid = (md, options) => {
-  const opts = options || {};
+  // Import HTML processing utilities
+  const { processMermaidInHTML } = require('./mermaid-utils');
 
-  // Import all utilities including conversion functions
-  const { parseFenceMermaid, renderMermaid, applyMermaidStyling } = require('./mermaid-utils');
-
-  // Extract Mermaid configuration
-  const mermaidConfig = {
-    // Server-side rendering options
-    clientSide: opts.clientSide || false,
-    fallbackToClientSide: opts.fallbackToClientSide !== false,
-    theme: opts.theme || 'default',
-    fontFamily: opts.fontFamily || 'arial',
-    fontSize: opts.fontSize || 16,
+  // Override the render method to post-process HTML content
+  const originalRender = md.render;
+  md.render = function(src, env) {
+    // First, let Remarkable do its normal rendering
+    let htmlContent = originalRender.call(this, src, env);
     
-    // Legacy client-side options
-    includeScript: opts.includeScript || false,
-    customClass: opts.mermaidCustomClass || '',
-    customStyle: opts.mermaidCustomStyle || '',
+    // Then, post-process the HTML to transform mermaid code blocks
+    htmlContent = processMermaidInHTML(htmlContent, options);
     
-    // Advanced mermaid configuration
-    mermaidConfig: opts.mermaidConfig || {},
-    
-    // Add other Mermaid options here as needed
-  };
-
-  /**
-   * Wrapper for fence Mermaid parsing
-   */
-  const parseFenceMermaidWrapper = (state, startLine, endLine) => {
-    return parseFenceMermaid(state, startLine, endLine);
-  };
-
-  // Register Mermaid parser BEFORE the default fences parser
-  // This ensures our Mermaid parser runs before the default code block parser
-  md.block.ruler.before('fences', 'mermaid', parseFenceMermaidWrapper, options);
-
-  // Register Mermaid renderer
-  md.renderer.rules.mermaid = (tokens, idx) => {
-    const token = tokens[idx];
-    const rendered = renderMermaid(token.content, mermaidConfig);
-    // Apply custom styling if configured
-    return applyMermaidStyling(rendered, mermaidConfig);
+    return htmlContent;
   };
 };
 

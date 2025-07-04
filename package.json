@@ -1,13 +1,16 @@
 {
   "name": "remarkable-mermaid-plus",
-  "version": "1.0.0",
-  "description": "Plugin for Remarkable to process embedded mermaid code in Markdown text.",
+  "version": "1.0.16",
+  "description": "Plugin for Remarkable to process embedded mermaid code in Markdown text. Supports both client-side and server-side rendering.",
   "main": "index.js",
   "homepage": "https://github.com/MilkWind/remarkable-mermaid-plus",
   "keywords": [
     "remarkable",
     "mermaid",
-    "markdown"
+    "markdown",
+    "diagram",
+    "flowchart",
+    "sequence"
   ],
   "author": {
     "name": "MilkWind",
@@ -17,9 +20,6 @@
   "license": "MIT",
   "dependencies": {
     "mermaid": "^10.0.0"
-  },
-  "optionalDependencies": {
-    "jsdom": "^22.0.0"
   },
   "devDependencies": {
     "remarkable": "2",
@@ -31,5 +31,12 @@
   },
   "scripts": {
     "test": "npx vows --spec index.test.js"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "notes": {
+    "serverSideRendering": "Server-side rendering is limited with mermaid v10+ due to async API. Plugin automatically falls back to client-side rendering.",
+    "mermaidVersions": "For full server-side rendering support, consider using mermaid v8.x or v9.x. v10+ requires client-side rendering."
   }
 }
