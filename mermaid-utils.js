@@ -2,14 +2,12 @@
  * Utility functions for processing Mermaid diagrams in Remarkable
  */
 
-let mermaidObject = require('mermaid');
-
 /**
  * Wrap Mermaid mermaidCode code with a div element
  * @param {string} mermaidCode - The Mermaid mermaidCode code
  * @returns {string} - HTML div for client-side rendering
  */
-async function renderMermaid(mermaidCode) {
+function wrapWithDiv(mermaidCode) {
     if (typeof mermaidCode !== 'string') {
         return '<div class="mermaid-error">Invalid Mermaid Code</div>';
     }
@@ -17,15 +15,7 @@ async function renderMermaid(mermaidCode) {
     // Generate a unique ID for this diagram
     const diagramId = `mermaid-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
-    if (!mermaidObject) {
-        return `<div class="mermaid" id="${diagramId}">${mermaidCode}</div>`;
-    }
-
-    // Generate unique ID for this diagram
-    const id = `mermaid-render-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-    const {svg} = await mermaidObject.render(id, mermaidCode);
-
-    return `<div class="mermaid" id="${diagramId}">${svg}</div>`;
+    return `<div class="mermaid" id="${diagramId}">${mermaidCode}</div>`;
 }
 
 /**
@@ -52,6 +42,115 @@ function applyMermaidStyling(htmlContent, config = {}) {
     return processedContent;
 }
 
+function addRenderingScript(htmlContent, config) {
+    return htmlContent + `
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.3/mermaid.min.js" integrity="sha512-HvxxeyPSnbU7/x0g15v3OMxTFeADyCUnCN3iCam3BDTxgFPKxa+ujRCbFuwjE8PASDwOH5LpzFfGGNWks7tuJQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script>
+(function() {
+        const initializeMermaid = async function() {
+            try {
+                // Configure mermaid with provided config
+                mermaid.initialize({
+                    startOnLoad: ${config.startOnLoad || false},
+                    theme: '${config.theme}',
+                    securityLevel: '${config.securityLevel}',
+                    fontFamily: '${config.fontFamily}',
+                    fontSize: ${config.fontSize},
+                    flowchart: ${JSON.stringify(config.flowchart)},
+                    sequence: ${JSON.stringify(config.sequence)},
+                    class: ${JSON.stringify(config.class)},
+                    gitGraph: ${JSON.stringify(config.gitGraph)}
+                });
+
+                // Find all mermaid divs and render them
+                const mermaidDivs = document.querySelectorAll('.mermaid');
+
+                for (let i = 0; i < mermaidDivs.length; i++) {
+                    const div = mermaidDivs[i];
+
+                    // Get clean text content, avoiding any HTML that might be mixed in
+                    let mermaidContent = div.textContent || div.innerText || '';
+
+                    // Clean up the content - remove any extra whitespace and HTML artifacts
+                    mermaidContent = mermaidContent.trim();
+
+                    // Skip if content is empty or contains HTML tags (already processed)
+                    if (!mermaidContent || mermaidContent.includes('<svg') || mermaidContent.includes('<path')) {
+                        continue;
+                    }
+
+                    // Validate that this is actually mermaid content
+                    const validMermaidTypes = ['graph', 'flowchart', 'sequenceDiagram', 'classDiagram', 'stateDiagram', 'erDiagram', 'journey', 'gantt', 'pie', 'gitgraph', 'mindmap', 'timeline'];
+                    const isValidMermaid = validMermaidTypes.some(function(type) {
+                        return mermaidContent.toLowerCase().includes(type.toLowerCase());
+                    });
+
+                    if (!isValidMermaid) {
+                        console.warn('Skipping non-mermaid content:', mermaidContent.substring(0, 50) + '...');
+                        continue;
+                    }
+
+                    try {
+                        // Ensure the div is properly mounted and visible
+                        if (!div.offsetParent && div.style.display !== 'none') {
+                            div.style.display = 'block';
+                        }
+
+                        // Create a temporary container to avoid DOM issues
+                        const tempContainer = document.createElement('div');
+                        tempContainer.style.width = '100%';
+                        tempContainer.style.height = 'auto';
+                        tempContainer.style.visibility = 'hidden';
+                        tempContainer.style.position = 'absolute';
+                        tempContainer.style.top = '-9999px';
+                        document.body.appendChild(tempContainer);
+
+                        // Generate unique ID for this diagram
+                        const id = 'mermaid-render-' + Date.now() + '-' + i;
+
+                        // Use mermaid v10+ async API with proper DOM context
+                        const result = await mermaid.render(id, mermaidContent, tempContainer);
+                        const svg = result.svg;
+
+                        // Remove temporary container
+                        document.body.removeChild(tempContainer);
+
+                        // Replace the div content with the SVG
+                        div.innerHTML = svg;
+
+                    } catch (renderError) {
+                        console.error('Error rendering mermaid diagram:', renderError);
+                        console.error('Content that failed:', mermaidContent);
+                        // Keep the original content if rendering fails
+                        const errorMessage = renderError instanceof Error ? renderError.message : String(renderError);
+                        div.innerHTML = '<pre style="color: red; background: #fee; padding: 10px; border-radius: 4px;">' +
+                            'Error rendering mermaid diagram: ' + errorMessage + '\\n\\n' +
+                            'Original content:\\n' + mermaidContent + '</pre>';
+                    }
+                }
+            } catch (error) {
+                console.error('Error initializing mermaid:', error);
+            }
+        };
+
+        // Wait for DOM to be fully ready and ensure proper mounting
+        const timeoutId = setInterval(function() {
+            // Check if mermaid is available
+            if (typeof mermaid === 'undefined') {
+                console.warn('Mermaid library is not loaded yet.');
+                return;
+            }
+            // Double-check that we're in a browser environment
+            if (typeof window !== 'undefined' && document.body) {
+                initializeMermaid();
+                clearInterval(timeoutId)
+            }
+        }, 1000);
+    })();
+    </script>
+    `;
+}
+
 /**
  * Process HTML content to transform mermaid code blocks into mermaid divs
  * @param {string} htmlContent - The HTML content to process
@@ -63,19 +162,9 @@ function processMermaidInHTML(htmlContent, options = {}) {
         return htmlContent;
     }
 
-    if (typeof mermaidObject.initialize !== 'function') {
-        if (options.mermaid) {
-            mermaidObject = options.mermaid
-            console.error('options.mermaid: ' + JSON.stringify(options.mermaid))
-        } else {
-            console.error("mermaid is not found, please check whether mermaid is installed or imported correctly.")
-            return htmlContent;
-        }
-    }
-
     const mermaidConfiguration = {
         startOnLoad: options.startOnLoad || false,
-        theme: options.theme || 'light',
+        theme: options.theme === 'light' ? 'default' : 'dark',
         securityLevel: options.securityLevel || 'loose',
         fontFamily: options.fontFamily || 'arial',
         fontSize: options.fontSize || 16,
@@ -94,14 +183,12 @@ function processMermaidInHTML(htmlContent, options = {}) {
             useMaxWidth: true,
         },
     };
-    console.error('mermaid: ', mermaid)
-    mermaidObject.initialize(mermaidConfiguration);
 
     // Find all mermaid code blocks in the HTML
     // Pattern matches: <pre><code class="language-mermaid">...</code></pre>
     const mermaidCodeBlockRegex = /<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/gi;
 
-    return htmlContent.replace(mermaidCodeBlockRegex, (match, content) => {
+    htmlContent = htmlContent.replace(mermaidCodeBlockRegex, (match, content) => {
         // Check if content has been syntax highlighted by hljs
         let cleanContent;
         if (content.includes('<span class="hljs-')) {
@@ -129,10 +216,11 @@ function processMermaidInHTML(htmlContent, options = {}) {
         }
 
         // Transform into mermaid div
-        renderMermaid(cleanContent, mermaid).then(mermaidHtml => {
-            return applyMermaidStyling(mermaidHtml, options);
-        });
+        cleanContent = wrapWithDiv(cleanContent);
+        return applyMermaidStyling(cleanContent, options);
     });
+
+    return addRenderingScript(htmlContent, mermaidConfiguration);
 }
 
 module.exports = {
