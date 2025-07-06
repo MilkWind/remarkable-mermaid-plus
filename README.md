@@ -127,6 +127,187 @@ The plugin accepts several configuration options:
 }
 ```
 
+## Manual Configuration for SSG (Static Site Generation)
+
+**⚠️ Important**: When using SSG (Static Site Generation) with frameworks like Next.js, you may encounter rendering failures due to hydration mismatches and timing issues. For SSG scenarios, it's recommended to use manual configuration.
+
+### Setup for SSG
+
+#### Step 1: Install Dependencies
+
+```bash
+npm install remarkable-mermaid-plus mermaid@10.9.3
+```
+
+#### Step 2: Server-Side Configuration
+
+Disable automatic script inclusion on the server:
+
+```javascript
+// Server-side (e.g., Next.js)
+import { Remarkable } from 'remarkable';
+import rmermaid from 'remarkable-mermaid-plus';
+
+const md = new Remarkable({
+  html: true,
+  breaks: true,
+  typographer: true,
+  // ... other options
+});
+
+md.use(rmermaid, {
+  includeScript: false  // Disable automatic script inclusion
+});
+
+const htmlContent = md.render(content);
+```
+
+#### Step 3: Client-Side Configuration
+
+Handle mermaid initialization manually on the client:
+
+```javascript
+// Client-side (e.g., React component)
+import { useEffect } from 'react';
+import mermaid from 'mermaid';
+
+function DocumentComponent({ htmlContent, theme }) {
+  useEffect(() => {
+    const initializeMermaid = async () => {
+      try {
+        // Only proceed if we're in the browser
+        if (typeof window === 'undefined') {
+          return;
+        }
+
+        // Configure mermaid
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: theme === 'dark' ? 'dark' : 'default', // Or others
+          securityLevel: 'loose',
+          fontFamily: 'arial',
+          fontSize: 16,
+          flowchart: {
+            useMaxWidth: true,
+            htmlLabels: true,
+          },
+          sequence: {
+            useMaxWidth: true,
+            wrap: true,
+          },
+          class: {
+            useMaxWidth: true,
+          },
+          gitGraph: {
+            useMaxWidth: true,
+          },
+        });
+
+        // Find all mermaid divs that haven't been processed yet
+        const mermaidDivs = document.querySelectorAll('.mermaid:not([data-processed])');
+        
+        if (mermaidDivs.length === 0) {
+          return;
+        }
+
+        // Process each mermaid div
+        for (let i = 0; i < mermaidDivs.length; i++) {
+          const div = mermaidDivs[i];
+          
+          try {
+            // Get mermaid content from the div
+            let mermaidContent = div.textContent || div.innerText || '';
+            mermaidContent = mermaidContent.trim();
+
+            // Skip if no content
+            if (!mermaidContent) {
+              continue;
+            }
+
+            // Skip if already contains SVG (already rendered)
+            if (mermaidContent.includes('<svg') || div.querySelector('svg')) {
+              div.setAttribute('data-processed', 'true');
+              continue;
+            }
+
+            // Validate mermaid content
+            const validMermaidTypes = [
+              'graph', 'flowchart', 'sequenceDiagram', 'classDiagram', 
+              'stateDiagram', 'erDiagram', 'journey', 'gantt', 'pie', 
+              'gitgraph', 'mindmap', 'timeline', 'requirement'
+            ];
+            
+            const isValidMermaid = validMermaidTypes.some(type => 
+              mermaidContent.toLowerCase().includes(type.toLowerCase())
+            );
+
+            if (!isValidMermaid) {
+              console.warn('Invalid mermaid content detected:', mermaidContent.substring(0, 100));
+              div.setAttribute('data-processed', 'true');
+              continue;
+            }
+
+            // Generate unique ID for this diagram
+            const diagramId = `mermaid-${Date.now()}-${i}`;
+            
+            // Render the mermaid diagram
+            const { svg } = await mermaid.render(diagramId, mermaidContent);
+            
+            // Replace content with rendered SVG
+            div.innerHTML = svg;
+            div.setAttribute('data-processed', 'true');
+            
+            // Add some styling to the container
+            div.style.textAlign = 'center';
+            div.style.margin = '1rem 0';
+            
+          } catch (error) {
+            console.error('Error processing individual mermaid diagram:', error);
+            div.setAttribute('data-processed', 'true');
+            // Add error styling
+            div.innerHTML = `<div style="color: red; border: 1px solid red; padding: 1rem; margin: 1rem 0; border-radius: 4px;">
+              <strong>Mermaid Diagram Error:</strong><br>
+              Failed to render diagram. Please check the syntax.
+            </div>`;
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing mermaid:', error);
+      }
+    };
+
+    // Use a more reliable approach for SSG
+    // Wait for both DOM ready and a short delay to ensure proper hydration
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(initializeMermaid, 1000);
+      });
+    } else {
+      // DOM is already loaded
+      setTimeout(initializeMermaid, 1000);
+    }
+  }, [htmlContent, theme]); // Re-run when content or theme changes
+
+  return (
+    <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
+  );
+}
+```
+
+#### Step 4: Package.json Dependencies
+
+Make sure your package.json includes the required dependencies:
+
+```json
+{
+  "dependencies": {
+    "mermaid": "^10.9.3",
+    "remarkable": "^2.0.1",
+    "remarkable-mermaid-plus": "^1.1.0"
+  }
+}
+```
+
 ### Options
 
 - **`theme`** (string): Mermaid theme. Options: `'default'`, `'neutral'`, `'dark'`, `'forest'`, `'base'`. Default is `'default'`.

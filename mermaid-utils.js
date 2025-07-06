@@ -2,6 +2,8 @@
  * Utility functions for processing Mermaid diagrams in Remarkable
  */
 
+const themes = ['default', 'neutral', 'dark', 'forest', 'base']
+
 /**
  * Wrap Mermaid mermaidCode code with a div element
  * @param {string} mermaidCode - The Mermaid mermaidCode code
@@ -49,6 +51,17 @@ function addRenderingScript(htmlContent, config) {
 (function() {
         const initializeMermaid = async function() {
             try {
+                // Only proceed if we're in the browser
+                if (typeof window === 'undefined') {
+                    return;
+                }
+
+                // Check if mermaid is available
+                if (typeof mermaid === 'undefined') {
+                    console.warn('Mermaid library is not loaded yet.');
+                    return;
+                }
+
                 // Configure mermaid with provided config
                 mermaid.initialize({
                     startOnLoad: ${config.startOnLoad || false},
@@ -62,81 +75,73 @@ function addRenderingScript(htmlContent, config) {
                     gitGraph: ${JSON.stringify(config.gitGraph)}
                 });
 
-                // Find all mermaid divs and render them
-                const mermaidDivs = document.querySelectorAll('.mermaid');
+                // Find all mermaid divs that haven't been processed yet
+                const mermaidDivs = document.querySelectorAll('.mermaid:not([data-processed])');
+                
+                if (mermaidDivs.length === 0) {
+                    return;
+                }
 
+                // Process each mermaid div
                 for (let i = 0; i < mermaidDivs.length; i++) {
                     const div = mermaidDivs[i];
-
-                    // Skip if already rendered
-                    if (div.getAttribute('data-mermaid-rendered') === 'true') {
-                        continue;
-                    }
-
-                    // Get clean text content, avoiding any HTML that might be mixed in
-                    let mermaidContent = div.textContent || div.innerText || '';
-
-                    // Clean up the content - remove any extra whitespace and HTML artifacts
-                    mermaidContent = mermaidContent.trim();
-
-                    // Skip if content is empty or contains HTML tags (already processed)
-                    if (!mermaidContent || mermaidContent.includes('<svg') || mermaidContent.includes('<path')) {
-                        continue;
-                    }
-
-                    // Validate that this is actually mermaid content
-                    const validMermaidTypes = ['graph', 'flowchart', 'sequenceDiagram', 'classDiagram', 'stateDiagram', 'erDiagram', 'journey', 'gantt', 'pie', 'gitgraph', 'mindmap', 'timeline'];
-                    const isValidMermaid = validMermaidTypes.some(function(type) {
-                        return mermaidContent.toLowerCase().includes(type.toLowerCase());
-                    });
-
-                    if (!isValidMermaid) {
-                        console.warn('Skipping non-mermaid content:', mermaidContent.substring(0, 50) + '...');
-                        continue;
-                    }
-
+                    
                     try {
-                        // Ensure the div is properly mounted and visible
-                        if (!div.offsetParent && div.style.display !== 'none') {
-                            div.style.display = 'block';
+                        // Get mermaid content from the div
+                        let mermaidContent = div.textContent || div.innerText || '';
+                        mermaidContent = mermaidContent.trim();
+
+                        // Skip if no content
+                        if (!mermaidContent) {
+                            continue;
                         }
 
-                        // Create a temporary container to avoid DOM issues
-                        const tempContainer = document.createElement('div');
-                        tempContainer.style.width = '100%';
-                        tempContainer.style.height = 'auto';
-                        tempContainer.style.visibility = 'hidden';
-                        tempContainer.style.position = 'absolute';
-                        tempContainer.style.top = '-9999px';
-                        document.body.appendChild(tempContainer);
+                        // Skip if already contains SVG (already rendered)
+                        if (mermaidContent.includes('<svg') || div.querySelector('svg')) {
+                            div.setAttribute('data-processed', 'true');
+                            continue;
+                        }
+
+                        // Validate mermaid content
+                        const validMermaidTypes = [
+                            'graph', 'flowchart', 'sequenceDiagram', 'classDiagram', 
+                            'stateDiagram', 'erDiagram', 'journey', 'gantt', 'pie', 
+                            'gitgraph', 'mindmap', 'timeline', 'requirement', 'journey'
+                        ];
+                        
+                        const isValidMermaid = validMermaidTypes.some(function(type) {
+                            return mermaidContent.toLowerCase().includes(type.toLowerCase());
+                        });
+
+                        if (!isValidMermaid) {
+                            console.warn('Invalid mermaid content detected:', mermaidContent.substring(0, 100));
+                            div.setAttribute('data-processed', 'true');
+                            continue;
+                        }
 
                         // Generate unique ID for this diagram
-                        const id = 'mermaid-render-' + Date.now() + '-' + i;
-
-                        // Use mermaid v10+ async API with proper DOM context
-                        const result = await mermaid.render(id, mermaidContent, tempContainer);
-                        const svg = result.svg;
-
-                        // Remove temporary container
-                        document.body.removeChild(tempContainer);
-
-                        // Replace the div content with the SVG
-                        div.innerHTML = svg;
-
-                        // Mark as rendered to prevent re-rendering
-                        div.setAttribute('data-mermaid-rendered', 'true');
-
-                    } catch (renderError) {
-                        console.error('Error rendering mermaid diagram:', renderError);
-                        console.error('Content that failed:', mermaidContent);
-                        // Keep the original content if rendering fails
-                        const errorMessage = renderError instanceof Error ? renderError.message : String(renderError);
-                        div.innerHTML = '<pre style="color: red; background: #fee; padding: 10px; border-radius: 4px;">' +
-                            'Error rendering mermaid diagram: ' + errorMessage + '\\n\\n' +
-                            'Original content:\\n' + mermaidContent + '</pre>';
+                        const diagramId = 'mermaid-' + Date.now() + '-' + i;
                         
-                        // Mark as rendered even if failed to prevent retry
-                        div.setAttribute('data-mermaid-rendered', 'true');
+                        // Render the mermaid diagram
+                        const result = await mermaid.render(diagramId, mermaidContent);
+                        const svg = result.svg;
+                        
+                        // Replace content with rendered SVG
+                        div.innerHTML = svg;
+                        div.setAttribute('data-processed', 'true');
+                        
+                        // Add some styling to the container
+                        div.style.textAlign = 'center';
+                        div.style.margin = '1rem 0';
+                        
+                    } catch (error) {
+                        console.error('Error processing individual mermaid diagram:', error);
+                        div.setAttribute('data-processed', 'true');
+                        // Add error styling
+                        div.innerHTML = '<div style="color: red; border: 1px solid red; padding: 1rem; margin: 1rem 0; border-radius: 4px;">' +
+                            '<strong>Mermaid Diagram Error:</strong><br>' +
+                            'Failed to render diagram. Please check the syntax.' +
+                            '</div>';
                     }
                 }
             } catch (error) {
@@ -144,19 +149,16 @@ function addRenderingScript(htmlContent, config) {
             }
         };
 
-        // Wait for DOM to be fully ready and ensure proper mounting
-        const timeoutId = setInterval(function() {
-            // Check if mermaid is available
-            if (typeof mermaid === 'undefined') {
-                console.warn('Mermaid library is not loaded yet.');
-                return;
-            }
-            // Double-check that we're in a browser environment
-            if (typeof window !== 'undefined' && document.body) {
-                initializeMermaid();
-                clearInterval(timeoutId)
-            }
-        }, 1000);
+        // Use a more reliable approach for SSG
+        // Wait for both DOM ready and a short delay to ensure proper hydration
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                setTimeout(initializeMermaid, 1000);
+            });
+        } else {
+            // DOM is already loaded
+            setTimeout(initializeMermaid, 1000);
+        }
     })();
     </script>
     `;
@@ -175,7 +177,7 @@ function processMermaidInHTML(htmlContent, options = {}) {
 
     const mermaidConfiguration = {
         startOnLoad: options.startOnLoad || false,
-        theme: options.theme === 'light' ? 'default' : 'dark',
+        theme: themes.includes(options.theme) ? options.theme : 'default',
         securityLevel: options.securityLevel || 'loose',
         fontFamily: options.fontFamily || 'arial',
         fontSize: options.fontSize || 16,
