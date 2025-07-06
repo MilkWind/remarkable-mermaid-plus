@@ -12,6 +12,8 @@ This plugin works as a post-processor on HTML content when `html: true` is enabl
 - 🎨 **Customizable styling**: Add custom CSS classes and configure themes
 - 🔧 **Easy integration**: Works as a simple post-processor on HTML content
 - ⚡ **Performance optimized**: Lightweight processing with automatic script injection
+- 🔒 **Re-rendering prevention**: Automatically marks rendered diagrams to prevent duplicate rendering
+- 📋 **Flexible script inclusion**: Option to include or exclude client-side rendering script
 
 # To Use
 
@@ -81,6 +83,7 @@ declare module 'remarkable-mermaid-plus' {
     securityLevel?: 'strict' | 'loose' | 'antiscript' | 'sandbox';
     fontFamily?: string;
     fontSize?: number;
+    includeScript?: boolean;
     flowchart?: object;
     sequence?: object;
     class?: object;
@@ -116,6 +119,7 @@ The plugin accepts several configuration options:
   securityLevel: 'loose',   // Security level (default: 'loose')
   fontFamily: 'arial',      // Font family (default: 'arial')
   fontSize: 16,             // Font size (default: 16)
+  includeScript: true,      // Include rendering script (default: true)
   flowchart: {},            // Flowchart configuration (default: {})
   sequence: {},             // Sequence diagram configuration (default: {})
   class: {},                // Class diagram configuration (default: {})
@@ -130,6 +134,7 @@ The plugin accepts several configuration options:
 - **`securityLevel`** (string): Security level for mermaid rendering. Options: `'strict'`, `'loose'`, `'antiscript'`, `'sandbox'`. Default is `'loose'`.
 - **`fontFamily`** (string): Font family for diagrams. Default is `'arial'`.
 - **`fontSize`** (number): Font size for diagrams. Default is `16`.
+- **`includeScript`** (boolean): Whether to include the client-side rendering script. Set to `false` if you want to handle script loading separately. Default is `true`.
 - **`flowchart`** (object): Flowchart-specific configuration options. Default is `{}`.
 - **`sequence`** (object): Sequence diagram-specific configuration options. Default is `{}`.
 - **`class`** (object): Class diagram-specific configuration options. Default is `{}`.
@@ -183,6 +188,7 @@ md.use(rmermaid, {
   securityLevel: 'strict',
   fontFamily: 'Helvetica, sans-serif',
   fontSize: 14,
+  includeScript: true,
   flowchart: {
     useMaxWidth: true,
     htmlLabels: true
@@ -191,6 +197,16 @@ md.use(rmermaid, {
     useMaxWidth: true,
     wrap: true
   }
+});
+```
+
+### Without Script Inclusion
+```javascript
+const md = new Remarkable({ html: true });
+md.use(rmermaid, {
+  theme: 'dark',
+  customClass: 'diagram',
+  includeScript: false  // Handle script loading separately
 });
 ```
 
@@ -218,6 +234,14 @@ graph TD
 <script>
 // Mermaid initialization and rendering script
 </script>
+```
+
+After client-side rendering, the diagram element gets a `data-mermaid-rendered="true"` attribute to prevent re-rendering:
+
+```html
+<div class="mermaid my-custom-class" id="mermaid-1234567890-abc123" data-mermaid-rendered="true">
+  <svg><!-- Rendered SVG content --></svg>
+</div>
 ```
 
 # Dependencies

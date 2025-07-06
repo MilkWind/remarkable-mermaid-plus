@@ -68,6 +68,11 @@ function addRenderingScript(htmlContent, config) {
                 for (let i = 0; i < mermaidDivs.length; i++) {
                     const div = mermaidDivs[i];
 
+                    // Skip if already rendered
+                    if (div.getAttribute('data-mermaid-rendered') === 'true') {
+                        continue;
+                    }
+
                     // Get clean text content, avoiding any HTML that might be mixed in
                     let mermaidContent = div.textContent || div.innerText || '';
 
@@ -118,6 +123,9 @@ function addRenderingScript(htmlContent, config) {
                         // Replace the div content with the SVG
                         div.innerHTML = svg;
 
+                        // Mark as rendered to prevent re-rendering
+                        div.setAttribute('data-mermaid-rendered', 'true');
+
                     } catch (renderError) {
                         console.error('Error rendering mermaid diagram:', renderError);
                         console.error('Content that failed:', mermaidContent);
@@ -126,6 +134,9 @@ function addRenderingScript(htmlContent, config) {
                         div.innerHTML = '<pre style="color: red; background: #fee; padding: 10px; border-radius: 4px;">' +
                             'Error rendering mermaid diagram: ' + errorMessage + '\\n\\n' +
                             'Original content:\\n' + mermaidContent + '</pre>';
+                        
+                        // Mark as rendered even if failed to prevent retry
+                        div.setAttribute('data-mermaid-rendered', 'true');
                     }
                 }
             } catch (error) {
@@ -220,7 +231,12 @@ function processMermaidInHTML(htmlContent, options = {}) {
         return applyMermaidStyling(cleanContent, options);
     });
 
-    return addRenderingScript(htmlContent, mermaidConfiguration);
+    // Only add rendering script if includeScript is true (default: true)
+    if (options.includeScript !== false) {
+        return addRenderingScript(htmlContent, mermaidConfiguration);
+    }
+
+    return htmlContent;
 }
 
 module.exports = {
