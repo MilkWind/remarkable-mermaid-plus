@@ -425,14 +425,6 @@ After client-side rendering, the diagram element gets a `data-mermaid-rendered="
 </div>
 ```
 
-# Dependencies
-
-## Required
-- **[Remarkable](https://github.com/jonschlinkert/remarkable)** with `html: true` option enabled
-
-## Client-side (automatically included)
-- **[Mermaid.js](https://mermaid.js.org/)** -- Client-side diagram rendering (loaded via CDN)
-
 # Tests
 
 There are a set of [Vows](http://vowsjs.org) tests in [index.test.js](index.test.js). To run:
